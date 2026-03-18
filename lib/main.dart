@@ -18,38 +18,56 @@ final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    WidgetsFlutterBinding.ensureInitialized();
 
-  // Firebase init
-  if (Firebase.apps.isEmpty) {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+    // Firebase init
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
+
+    // Timezone for notifications
+    tz.initializeTimeZones();
+
+    // Local notifications init
+    const AndroidInitializationSettings androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const InitializationSettings initSettings =
+        InitializationSettings(android: androidSettings);
+    await flutterLocalNotificationsPlugin.initialize(initSettings);
+
+    // OneSignal Init
+    try {
+      OneSignal.Debug.setLogLevel(OSLogLevel.none);
+      OneSignal.initialize("fd860c06-8fb5-420e-867f-1abb6a85f9c2");
+    } catch (e) {
+      debugPrint("OneSignal initialization failed: $e");
+    }
+    
+    // Schedule/Reset 5-day re-engagement reminder
+    try {
+      await NotificationService.scheduleReEngagementReminder();
+    } catch (e) {
+      debugPrint("Re-engagement reminder scheduling failed: $e");
+    }
+  } catch (e) {
+    debugPrint("Critical initialization error: $e");
   }
 
-  // Timezone for notifications
-  tz.initializeTimeZones();
-
-  // Local notifications init
-  const AndroidInitializationSettings androidSettings =
-      AndroidInitializationSettings('@mipmap/ic_launcher');
-  const InitializationSettings initSettings =
-      InitializationSettings(android: androidSettings);
-  await flutterLocalNotificationsPlugin.initialize(initSettings);
-
-  // OneSignal Init
-  OneSignal.Debug.setLogLevel(OSLogLevel.none);
-  OneSignal.initialize("fd860c06-8fb5-420e-867f-1abb6a85f9c2");
-  
-  // Schedule/Reset 5-day re-engagement reminder
-  await NotificationService.scheduleReEngagementReminder();
-
   // Check Privacy Acceptance
-  final prefs = await SharedPreferences.getInstance();
-  final bool isPrivacyAccepted = prefs.getBool('privacy_accepted') ?? false;
+  bool isPrivacyAccepted = false;
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    isPrivacyAccepted = prefs.getBool('privacy_accepted') ?? false;
+  } catch (e) {
+    debugPrint("SharedPreferences error: $e");
+  }
 
   runApp(MyCarApp(isPrivacyAccepted: isPrivacyAccepted));
 }
+
 
 class MyCarApp extends StatelessWidget {
   final bool isPrivacyAccepted;
