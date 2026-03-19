@@ -31,8 +31,14 @@ class AuthService extends ChangeNotifier {
       final userCredential = await _auth.signInWithCredential(credential);
       notifyListeners();
       return userCredential;
+    } on FirebaseAuthException catch (e) {
+      debugPrint('Firebase Auth error during Google Sign-In: ${e.code} - ${e.message}');
+      rethrow;
     } catch (e) {
       debugPrint('Google Sign-In error: $e');
+      if (e.toString().contains('10')) {
+        throw Exception('Google Sign-In Error 10: This usually indicates a SHA-1 fingerprint mismatch or an incorrectly configured OAuth consent screen in the Google Cloud Console.');
+      }
       rethrow;
     }
   }
